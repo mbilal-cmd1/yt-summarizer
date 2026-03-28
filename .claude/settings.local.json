@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(curl -s -X POST http://localhost:3000/summarize -H \"Content-Type: application/json\" -d '{\"\"url\"\":\"\"https://www.youtube.com/watch?v=dQw4w9WgXcQ\"\"}')",
+      "Bash(curl -s -X POST https://openrouter.ai/api/v1/chat/completions -H \"Content-Type: application/json\" -H \"Authorization: Bearer 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\" -H \"HTTP-Referer: http://localhost:3000\" -d '{\"\"model\"\":\"\"qwen/qwen3-4b:free\"\",\"\"messages\"\":[{\"\"role\"\":\"\"user\"\",\"\"content\"\":\"\"Say hello in one word\"\"}],\"\"max_tokens\"\":10}')",
+      "Bash(curl:*)",
+      "Bash(for model:*)",
+      "Bash(do echo:*)",
+      "Bash(python3 -c \":*)",
+      "Bash(python3:*)",
+      "Bash(pip3 install:*)"
+    ]
+  }
+}

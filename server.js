@@ -23,28 +23,27 @@ function httpsGet(url, headers = {}) {
   });
 }
 async function fetchVideoInfo(videoId) {
+  let title = "", channel = "", transcript = "";
   try {
-    const { body: page } = await httpsGet(`https://www.youtube.com/watch?v=${videoId}`);
-    const title = (page.match(/"title":"([^"]+)"/) || [])[1] || "";
-    const channel = (page.match(/"ownerChannelName":"([^"]+)"/) || [])[1] || "";
-    const desc = (page.match(/"shortDescription":"((?:[^"\\]|\\.)*)"/) || [])[1] || "";
-    const cleanDesc = desc.replace(/\\n/g, " ").replace(/\\"/g, '"').substring(0, 2000);
+    const { body } = await httpsGet(`https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=${videoId}&format=json`);
+    const oembed = JSON.parse(body);
+    title = oembed.title || "";
+    channel = oembed.author_name || "";
+    console.log("oEmbed:", title, "/", channel);
+  } catch(e) { console.error("oEmbed error:", e.message); }
 
-    // Fetch transcript via Python helper
-    const transcript = await new Promise((resolve) => {
+  try {
+    transcript = await new Promise((resolve) => {
       const py = spawn("python3", [path.join(__dirname, "get_transcript.py"), videoId]);
       let out = "";
       py.stdout.on("data", d => out += d);
       py.on("close", () => resolve(out.trim()));
       py.on("error", () => resolve(""));
     });
-
     console.log("Transcript:", transcript ? transcript.length + " chars" : "none");
-    return { title, channel, desc: cleanDesc, transcript };
-  } catch (e) {
-    console.error("Metadata error:", e.message);
-    return { title: "", channel: "", desc: "", transcript: "" };
-  }
+  } catch(e) { console.error("Transcript error:", e.message); }
+
+  return { title, channel, transcript };
 }
 function callAI(prompt, model = "google/gemma-3-12b-it:free") {
   return new Promise((resolve, reject) => {
@@ -95,7 +94,6 @@ const server = http.createServer(async (req, res) => {
         const context = [
           info.title ? `Title: ${info.title}` : "",
           info.channel ? `Channel: ${info.channel}` : "",
-          info.desc ? `Description: ${info.desc}` : "",
           info.transcript ? `Transcript: ${info.transcript}` : "",
         ].filter(Boolean).join("\n\n") || `URL: ${url}`;
         const prompt = `Summarize this YouTube video based on the information below.\n\n${context}\n\nReturn ONLY valid JSON no markdown:\n{"title":"video title","channel":"channel name","overview":"2-3 sentence overview","outline":[{"section":"Section Title","points":["p1","p2","p3"]}],"key_takeaways":["t1","t2","t3","t4","t5"],"notable_quotes":["notable quote if found"],"conclusion":"1-2 sentences"}\nMake 3-6 real outline sections based on the actual content.`;

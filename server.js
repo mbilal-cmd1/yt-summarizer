@@ -57,9 +57,7 @@ function callAI(prompt, model = "google/gemma-3-12b-it:free") {
   });
 }
 const MODELS = [
-  "google/gemma-3-12b-it:free",
-  "google/gemma-3-27b-it:free",
-  "google/gemma-3-4b-it:free",
+  "openai/gpt-4o-mini",
 ];
 async function callAIWithRetry(prompt) {
   for (const model of MODELS) {

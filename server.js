@@ -48,7 +48,7 @@ async function fetchVideoInfo(videoId) {
 }
 function callAI(prompt) {
   return new Promise((resolve, reject) => {
-    const body = JSON.stringify({ model: "qwen/qwen3-4b:free", messages: [{ role: "user", content: prompt }], max_tokens: 2000 });
+    const body = JSON.stringify({ model: "openai/gpt-oss-20b:free", messages: [{ role: "user", content: prompt }], max_tokens: 2000 });
     const req = https.request({ hostname: "openrouter.ai", path: "/api/v1/chat/completions", method: "POST", headers: { "Content-Type": "application/json", "Authorization": `Bearer ${API_KEY}`, "HTTP-Referer": "http://localhost:3000", "Content-Length": Buffer.byteLength(body) } }, (res) => {
       let d = ""; res.on("data", c => d += c);
       res.on("end", () => { try { resolve({ status: res.statusCode, body: JSON.parse(d) }); } catch(e) { reject(e); } });

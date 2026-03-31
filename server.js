@@ -46,9 +46,9 @@ async function fetchVideoInfo(videoId) {
     return { title: "", channel: "", desc: "", transcript: "" };
   }
 }
-function callAI(prompt) {
+function callAI(prompt, model = "google/gemma-3-12b-it:free") {
   return new Promise((resolve, reject) => {
-    const body = JSON.stringify({ model: "google/gemma-3-12b-it:free", messages: [{ role: "user", content: prompt }], max_tokens: 2000 });
+    const body = JSON.stringify({ model, messages: [{ role: "user", content: prompt }], max_tokens: 2000 });
     const req = https.request({ hostname: "openrouter.ai", path: "/api/v1/chat/completions", method: "POST", headers: { "Content-Type": "application/json", "Authorization": `Bearer ${API_KEY}`, "HTTP-Referer": "http://localhost:3000", "Content-Length": Buffer.byteLength(body) } }, (res) => {
       let d = ""; res.on("data", c => d += c);
       res.on("end", () => { try { resolve({ status: res.statusCode, body: JSON.parse(d) }); } catch(e) { reject(e); } });
@@ -56,19 +56,26 @@ function callAI(prompt) {
     req.on("error", reject); req.write(body); req.end();
   });
 }
-async function callAIWithRetry(prompt, retries = 3) {
-  for (let i = 0; i < retries; i++) {
-    try {
-      const result = await callAI(prompt);
-      if (result.status === 200) {
-        const raw = (result.body?.choices?.[0]?.message?.content || "")
-          .replace(/^```json\s*/i,"").replace(/^```\s*/i,"").replace(/\s*```$/i,"").trim();
-        let parsed; try { parsed = JSON.parse(raw); } catch { const m = raw.match(/\{[\s\S]*\}/); try { parsed = m ? JSON.parse(m[0]) : null; } catch {} }
-        if (parsed) return { ok: true, data: parsed };
-      }
-      console.log(`Attempt ${i+1} failed, retrying...`);
-      if (i < retries - 1) await new Promise(r => setTimeout(r, 1000));
-    } catch(e) { if (i === retries - 1) throw e; }
+const MODELS = [
+  "google/gemma-3-12b-it:free",
+  "google/gemma-3-27b-it:free",
+  "google/gemma-3-4b-it:free",
+];
+async function callAIWithRetry(prompt) {
+  for (const model of MODELS) {
+    for (let i = 0; i < 2; i++) {
+      try {
+        const result = await callAI(prompt, model);
+        if (result.status === 200) {
+          const raw = (result.body?.choices?.[0]?.message?.content || "")
+            .replace(/^```json\s*/i,"").replace(/^```\s*/i,"").replace(/\s*```$/i,"").trim();
+          let parsed; try { parsed = JSON.parse(raw); } catch { const m = raw.match(/\{[\s\S]*\}/); try { parsed = m ? JSON.parse(m[0]) : null; } catch {} }
+          if (parsed) { console.log(`Success with ${model}`); return { ok: true, data: parsed }; }
+        }
+        console.log(`${model} attempt ${i+1} failed`);
+        await new Promise(r => setTimeout(r, 500));
+      } catch(e) { console.log(`${model} error:`, e.message); }
+    }
   }
   return { ok: false };
 }

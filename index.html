@@ -275,7 +275,7 @@
     setStatus('Searching for transcript and metadata...');
 
     try {
-      const res = await fetch('/summarize', {
+      const res = await fetch('https://yt-summarizer-5ckl.onrender.com/summarize', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ url })

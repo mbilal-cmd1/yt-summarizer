@@ -56,6 +56,22 @@ function callAI(prompt) {
     req.on("error", reject); req.write(body); req.end();
   });
 }
+async function callAIWithRetry(prompt, retries = 3) {
+  for (let i = 0; i < retries; i++) {
+    try {
+      const result = await callAI(prompt);
+      if (result.status === 200) {
+        const raw = (result.body?.choices?.[0]?.message?.content || "")
+          .replace(/^```json\s*/i,"").replace(/^```\s*/i,"").replace(/\s*```$/i,"").trim();
+        let parsed; try { parsed = JSON.parse(raw); } catch { const m = raw.match(/\{[\s\S]*\}/); try { parsed = m ? JSON.parse(m[0]) : null; } catch {} }
+        if (parsed) return { ok: true, data: parsed };
+      }
+      console.log(`Attempt ${i+1} failed, retrying...`);
+      if (i < retries - 1) await new Promise(r => setTimeout(r, 1000));
+    } catch(e) { if (i === retries - 1) throw e; }
+  }
+  return { ok: false };
+}
 const server = http.createServer(async (req, res) => {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
@@ -78,12 +94,9 @@ const server = http.createServer(async (req, res) => {
           info.transcript ? `Transcript: ${info.transcript}` : "",
         ].filter(Boolean).join("\n\n") || `URL: ${url}`;
         const prompt = `Summarize this YouTube video based on the information below.\n\n${context}\n\nReturn ONLY valid JSON no markdown:\n{"title":"video title","channel":"channel name","overview":"2-3 sentence overview","outline":[{"section":"Section Title","points":["p1","p2","p3"]}],"key_takeaways":["t1","t2","t3","t4","t5"],"notable_quotes":["notable quote if found"],"conclusion":"1-2 sentences"}\nMake 3-6 real outline sections based on the actual content.`;
-        const result = await callAI(prompt);
-        if (result.status !== 200) { res.writeHead(500, {"Content-Type":"application/json"}); res.end(JSON.stringify({ error: result.body?.error?.message || "API error" })); return; }
-        let raw = result.body?.choices?.[0]?.message?.content || "";
-        raw = raw.replace(/^```json\s*/i,"").replace(/^```\s*/i,"").replace(/\s*```$/i,"").trim();
-        let parsed; try { parsed = JSON.parse(raw); } catch { const m = raw.match(/\{[\s\S]*\}/); parsed = m ? JSON.parse(m[0]) : null; }
-        if (!parsed) { res.writeHead(500, {"Content-Type":"application/json"}); res.end(JSON.stringify({ error: "Could not parse summary" })); return; }
+        const result = await callAIWithRetry(prompt);
+        if (!result.ok) { res.writeHead(500, {"Content-Type":"application/json"}); res.end(JSON.stringify({ error: "Could not generate summary, please try again" })); return; }
+        const parsed = result.data;
         console.log("Done:", parsed.title);
         res.writeHead(200, {"Content-Type":"application/json"}); res.end(JSON.stringify(parsed));
       } catch(e) { res.writeHead(500, {"Content-Type":"application/json"}); res.end(JSON.stringify({ error: e.message })); }

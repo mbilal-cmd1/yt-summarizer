@@ -48,7 +48,7 @@ async function fetchVideoInfo(videoId) {
 }
 function callAI(prompt) {
   return new Promise((resolve, reject) => {
-    const body = JSON.stringify({ model: "google/gemma-3-4b-it:free", messages: [{ role: "user", content: prompt }], max_tokens: 2000 });
+    const body = JSON.stringify({ model: "google/gemma-3-12b-it:free", messages: [{ role: "user", content: prompt }], max_tokens: 2000 });
     const req = https.request({ hostname: "openrouter.ai", path: "/api/v1/chat/completions", method: "POST", headers: { "Content-Type": "application/json", "Authorization": `Bearer ${API_KEY}`, "HTTP-Referer": "http://localhost:3000", "Content-Length": Buffer.byteLength(body) } }, (res) => {
       let d = ""; res.on("data", c => d += c);
       res.on("end", () => { try { resolve({ status: res.statusCode, body: JSON.parse(d) }); } catch(e) { reject(e); } });
